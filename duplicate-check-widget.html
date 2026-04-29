@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Widget Anti‑Doublons</title>
+  <script src="https://js.jotform.com/JotFormCustomWidget.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 8px;
+    }
+    #msg {
+      margin-top: 6px;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+
+  <input type="file" id="fileInput" multiple />
+  <div id="msg"></div>
+
+<script>
+  let fileKeys = [];
+
+  function validate(files) {
+    let duplicateFound = false;
+    let tempKeys = [];
+
+    files.forEach(file => {
+      const key = file.name + "_" + file.size;
+      if (fileKeys.includes(key)) {
+        duplicateFound = true;
+      }
+      tempKeys.push(key);
+    });
+
+    return { duplicateFound, tempKeys };
+  }
+
+  document.getElementById("fileInput").addEventListener("change", (e) => {
+    const files = Array.from(e.target.files);
+    const msg = document.getElementById("msg");
+
+    if (files.length === 0) {
+      msg.innerHTML = "❌ Veuillez sélectionner un fichier";
+      JFCustomWidget.sendSubmit({ valid: false });
+      return;
+    }
+
+    const { duplicateFound, tempKeys } = validate(files);
+
+    if (duplicateFound) {
+      msg.innerHTML = "❌ Fichier(s) en double détecté(s)";
+      JFCustomWidget.sendSubmit({ valid: false });
+    } else {
+      fileKeys = tempKeys;
+      msg.innerHTML = "✅ Fichiers valides";
+      JFCustomWidget.sendData(fileKeys.join(","));
+      JFCustomWidget.sendSubmit({ valid: true });
+    }
+  });
+
+  JFCustomWidget.subscribe("ready", function () {
+    // IMPORTANT : bloquer la page dès l'arrivée
+    JFCustomWidget.sendSubmit({ valid: false });
+
+    JFCustomWidget.requestFrameResize({ height: 120 });
+  });
+</script>
+
+</body>
+</html>
