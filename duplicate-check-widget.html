@@ -1,73 +1,426 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Widget Anti‑Doublons</title>
-  <script src="https://js.jotform.com/JotFormCustomWidget.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Widget Photo Upload</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #F7F6F3;
+      --surface: #FFFFFF;
+      --border: #E2E0DA;
+      --border-active: #2D2D2D;
+      --accent: #1A1A1A;
+      --accent-soft: #F0EFE9;
+      --success: #2E7D32;
+      --success-bg: #F1F8F2;
+      --error: #C62828;
+      --error-bg: #FFF0F0;
+      --warning: #E65100;
+      --warning-bg: #FFF8F0;
+      --text: #1A1A1A;
+      --text-muted: #888880;
+      --radius: 10px;
+      --shadow: 0 1px 4px rgba(0,0,0,0.07);
+    }
+
     body {
-      font-family: Arial, sans-serif;
-      padding: 8px;
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 16px;
+      min-height: 100vh;
     }
-    #msg {
-      margin-top: 6px;
+
+    .widget-wrapper {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* ── Drop Zone ── */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      padding: 36px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s, transform 0.15s;
+      position: relative;
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      transform: scale(1.005);
+    }
+    .drop-zone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .drop-icon {
+      font-size: 36px;
+      margin-bottom: 10px;
+      display: block;
+    }
+    .drop-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .drop-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: 'DM Mono', monospace;
+    }
+
+    /* ── Counter bar ── */
+    .counter-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 14px 0 10px;
+      font-size: 12px;
+      font-family: 'DM Mono', monospace;
+      color: var(--text-muted);
+    }
+    .counter-pill {
+      background: var(--accent);
+      color: #fff;
+      border-radius: 20px;
+      padding: 2px 10px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .counter-pill.ok    { background: var(--success); }
+    .counter-pill.warn  { background: var(--warning); }
+    .counter-pill.error { background: var(--error); }
+
+    /* ── Progress bar ── */
+    .progress-track {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin-bottom: 14px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.3s ease, background 0.3s;
+    }
+    .progress-fill.ok    { background: var(--success); }
+    .progress-fill.error { background: var(--error); }
+
+    /* ── Photo Grid ── */
+    .photo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .photo-card {
+      position: relative;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 2px solid var(--border);
+      background: var(--accent-soft);
+      aspect-ratio: 1;
+      transition: border-color 0.2s, opacity 0.2s;
+      animation: fadeIn 0.25s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.93); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+    .photo-card.duplicate {
+      border-color: var(--error);
+      opacity: 0.7;
+    }
+    .photo-card img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+    }
+    .photo-card .badge {
+      position: absolute;
+      top: 5px; left: 5px;
+      background: var(--error);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      font-family: 'DM Mono', monospace;
+      padding: 2px 6px;
+      border-radius: 4px;
+      letter-spacing: 0.05em;
+    }
+    .photo-card .remove-btn {
+      position: absolute;
+      top: 5px; right: 5px;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      width: 22px; height: 22px;
+      cursor: pointer;
       font-size: 13px;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
     }
+    .photo-card .remove-btn:hover { background: var(--error); }
+    .photo-card .filename {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      background: rgba(0,0,0,0.5);
+      color: #fff;
+      font-size: 9px;
+      font-family: 'DM Mono', monospace;
+      padding: 3px 5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── Alert messages ── */
+    .alert {
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 12.5px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      border: 1px solid transparent;
+    }
+    .alert-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+    .alert.info    { background: var(--accent-soft); border-color: var(--border); color: var(--text-muted); }
+    .alert.success { background: var(--success-bg); border-color: #A5D6A7; color: var(--success); }
+    .alert.error   { background: var(--error-bg); border-color: #EF9A9A; color: var(--error); }
+    .alert.warning { background: var(--warning-bg); border-color: #FFCC80; color: var(--warning); }
+
+    /* ── Hidden input for Jotform ── */
+    #jotform-value { display: none; }
   </style>
 </head>
 <body>
+<div class="widget-wrapper">
 
-  <input type="file" id="fileInput" multiple />
-  <div id="msg"></div>
+  <!-- Drop zone -->
+  <div class="drop-zone" id="dropZone">
+    <input type="file" id="fileInput" accept="image/*" multiple />
+    <span class="drop-icon">📷</span>
+    <div class="drop-title">Glissez vos photos ici</div>
+    <div class="drop-sub">ou cliquez pour choisir · 3 à 5 photos requises</div>
+  </div>
+
+  <!-- Counter + progress -->
+  <div class="counter-bar">
+    <span id="counterLabel">0 photo sélectionnée</span>
+    <span class="counter-pill" id="counterPill">0 / 5</span>
+  </div>
+  <div class="progress-track">
+    <div class="progress-fill" id="progressFill" style="width:0%"></div>
+  </div>
+
+  <!-- Alert zone -->
+  <div id="alertZone"></div>
+
+  <!-- Photo grid -->
+  <div class="photo-grid" id="photoGrid"></div>
+
+  <!-- Hidden field communiqué à Jotform -->
+  <input type="hidden" id="jotform-value" />
+
+</div>
 
 <script>
-  let fileKeys = [];
+  // ─── Config ───────────────────────────────────────────
+  const MIN_FILES = 3;
+  const MAX_FILES = 5;
 
-  function validate(files) {
-    let duplicateFound = false;
-    let tempKeys = [];
+  // ─── State ────────────────────────────────────────────
+  let files = []; // { file, key, url, isDuplicate }
 
-    files.forEach(file => {
-      const key = file.name + "_" + file.size;
-      if (fileKeys.includes(key)) {
-        duplicateFound = true;
-      }
-      tempKeys.push(key);
-    });
+  // ─── DOM refs ─────────────────────────────────────────
+  const dropZone      = document.getElementById('dropZone');
+  const fileInput     = document.getElementById('fileInput');
+  const photoGrid     = document.getElementById('photoGrid');
+  const counterLabel  = document.getElementById('counterLabel');
+  const counterPill   = document.getElementById('counterPill');
+  const progressFill  = document.getElementById('progressFill');
+  const alertZone     = document.getElementById('alertZone');
 
-    return { duplicateFound, tempKeys };
+  // ─── Drag & Drop ──────────────────────────────────────
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    handleNewFiles(Array.from(e.dataTransfer.files));
+  });
+  fileInput.addEventListener('change', e => {
+    handleNewFiles(Array.from(e.target.files));
+    fileInput.value = ''; // reset so same file can re-trigger change if needed
+  });
+
+  // ─── Key : nom + taille (détection doublon) ───────────
+  function makeKey(file) {
+    return `${file.name}__${file.size}`;
   }
 
-  document.getElementById("fileInput").addEventListener("change", (e) => {
-    const files = Array.from(e.target.files);
-    const msg = document.getElementById("msg");
-
-    if (files.length === 0) {
-      msg.innerHTML = "❌ Veuillez sélectionner un fichier";
-      JFCustomWidget.sendSubmit({ valid: false });
-      return;
+  // ─── Ajouter de nouveaux fichiers ─────────────────────
+  function handleNewFiles(newFiles) {
+    const imageFiles = newFiles.filter(f => f.type.startsWith('image/'));
+    if (imageFiles.length !== newFiles.length) {
+      showAlert('Seules les images sont acceptées (JPG, PNG, WEBP…)', 'warning');
     }
 
-    const { duplicateFound, tempKeys } = validate(files);
+    imageFiles.forEach(file => {
+      if (files.length >= MAX_FILES) return; // ignore au-delà de 5
+      const key = makeKey(file);
+      const url = URL.createObjectURL(file);
+      files.push({ file, key, url, isDuplicate: false });
+    });
 
-    if (duplicateFound) {
-      msg.innerHTML = "❌ Fichier(s) en double détecté(s)";
-      JFCustomWidget.sendSubmit({ valid: false });
-    } else {
-      fileKeys = tempKeys;
-      msg.innerHTML = "✅ Fichiers valides";
-      JFCustomWidget.sendData(fileKeys.join(","));
-      JFCustomWidget.sendSubmit({ valid: true });
+    detectDuplicates();
+    renderGrid();
+    updateUI();
+    notifyJotform();
+  }
+
+  // ─── Détection doublons ───────────────────────────────
+  function detectDuplicates() {
+    const seen = {};
+    files.forEach(f => {
+      if (seen[f.key]) {
+        f.isDuplicate = true;
+      } else {
+        seen[f.key] = true;
+        f.isDuplicate = false;
+      }
+    });
+  }
+
+  // ─── Supprimer une photo ──────────────────────────────
+  function removeFile(index) {
+    URL.revokeObjectURL(files[index].url);
+    files.splice(index, 1);
+    detectDuplicates();
+    renderGrid();
+    updateUI();
+    notifyJotform();
+  }
+
+  // ─── Rendu de la grille ───────────────────────────────
+  function renderGrid() {
+    photoGrid.innerHTML = '';
+    files.forEach((f, i) => {
+      const card = document.createElement('div');
+      card.className = 'photo-card' + (f.isDuplicate ? ' duplicate' : '');
+
+      card.innerHTML = `
+        <img src="${f.url}" alt="${f.file.name}" />
+        ${f.isDuplicate ? '<span class="badge">DOUBLON</span>' : ''}
+        <button class="remove-btn" title="Supprimer">✕</button>
+        <div class="filename">${f.file.name}</div>
+      `;
+
+      card.querySelector('.remove-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeFile(i);
+      });
+
+      photoGrid.appendChild(card);
+    });
+  }
+
+  // ─── Mise à jour compteur / progress / alertes ────────
+  function updateUI() {
+    const total      = files.length;
+    const duplicates = files.filter(f => f.isDuplicate).length;
+    const valid      = total - duplicates;
+    const pct        = Math.min((valid / MAX_FILES) * 100, 100);
+    const isReady    = valid >= MIN_FILES && valid <= MAX_FILES && duplicates === 0;
+
+    // Label
+    counterLabel.textContent = `${total} photo${total > 1 ? 's' : ''} sélectionnée${total > 1 ? 's' : ''}`;
+
+    // Pill
+    counterPill.textContent = `${valid} / ${MAX_FILES}`;
+    counterPill.className = 'counter-pill ' + (isReady ? 'ok' : duplicates > 0 ? 'error' : valid < MIN_FILES ? 'warn' : '');
+
+    // Progress
+    progressFill.style.width = pct + '%';
+    progressFill.className = 'progress-fill ' + (isReady ? 'ok' : duplicates > 0 ? 'error' : '');
+
+    // Alertes
+    alertZone.innerHTML = '';
+    if (duplicates > 0) {
+      showAlert(`${duplicates} photo${duplicates > 1 ? 's sont des doublons' : ' est un doublon'} — veuillez les retirer et soumettre des photos différentes.`, 'error');
+    } else if (valid > MAX_FILES) {
+      showAlert(`Maximum ${MAX_FILES} photos autorisées. Veuillez en retirer ${valid - MAX_FILES}.`, 'error');
+    } else if (valid > 0 && valid < MIN_FILES) {
+      showAlert(`Encore ${MIN_FILES - valid} photo${MIN_FILES - valid > 1 ? 's' : ''} requise${MIN_FILES - valid > 1 ? 's' : ''} (minimum ${MIN_FILES}).`, 'warning');
+    } else if (isReady) {
+      showAlert(`${valid} photos valides — prêt à soumettre !`, 'success');
+    } else if (total === 0) {
+      showAlert(`Veuillez ajouter entre ${MIN_FILES} et ${MAX_FILES} photos différentes.`, 'info');
     }
+  }
+
+  function showAlert(msg, type) {
+    const icons = { info: 'ℹ️', success: '✅', error: '🚫', warning: '⚠️' };
+    const div = document.createElement('div');
+    div.className = `alert ${type}`;
+    div.innerHTML = `<span class="alert-icon">${icons[type]}</span><span>${msg}</span>`;
+    alertZone.appendChild(div);
+  }
+
+  // ─── Communication avec Jotform (postMessage) ─────────
+  function notifyJotform() {
+    const valid      = files.filter(f => !f.isDuplicate);
+    const duplicates = files.filter(f => f.isDuplicate);
+    const isReady    = valid.length >= MIN_FILES && valid.length <= MAX_FILES && duplicates.length === 0;
+
+    const payload = {
+      type    : 'setFieldValue',
+      // Jotform lit cette valeur dans le champ lié au widget
+      value   : isReady ? valid.map(f => f.file.name).join(', ') : '',
+      // Validation : si non prêt, le formulaire ne peut pas être soumis
+      valid   : isReady,
+      // Message affiché par Jotform si invalid
+      message : isReady
+        ? ''
+        : duplicates.length > 0
+          ? 'Photos en doublon détectées — veuillez soumettre des photos différentes.'
+          : `Veuillez sélectionner entre ${MIN_FILES} et ${MAX_FILES} photos différentes.`
+    };
+
+    // Envoi à Jotform (widget API)
+    if (window.parent !== window) {
+      window.parent.postMessage(JSON.stringify(payload), '*');
+    }
+
+    // Aussi via JotForm widget SDK si disponible
+    if (typeof JFCustomWidget !== 'undefined') {
+      JFCustomWidget.sendData(payload);
+    }
+  }
+
+  // ─── Init Jotform Widget SDK ──────────────────────────
+  window.addEventListener('message', function(e) {
+    try {
+      const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+      // Jotform envoie "ready" quand le widget est chargé
+      if (data && data.type === 'ready') {
+        notifyJotform();
+      }
+    } catch (_) {}
   });
 
-  JFCustomWidget.subscribe("ready", function () {
-    // IMPORTANT : bloquer la page dès l'arrivée
-    JFCustomWidget.sendSubmit({ valid: false });
-
-    JFCustomWidget.requestFrameResize({ height: 120 });
-  });
+  // ─── Init UI ──────────────────────────────────────────
+  updateUI();
 </script>
-
 </body>
 </html>
